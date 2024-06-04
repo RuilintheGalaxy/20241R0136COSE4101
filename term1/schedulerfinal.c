@@ -606,7 +606,7 @@ void simulator(int total_time, int alg, int time_quantum) {
         //알고리즘에 따라 정렬하기 전의 readyQueue
         //*****Queue_Print(READY_Q); 
         // printf("\n ");
-    Process* comebackprocess = NULL;
+    // Process* comebackprocess = NULL;
     //WAIT_Q에 있던 애들 다시 READY_Q로 불러오기 setup
         int wait_size = WAIT_Q->size; //IO는 병렬적으로 수행된다고 가정
         for (int i = 0; i < wait_size; i++) { //WAIT_Q에 있는 모든 프로세스들에게 적용
@@ -635,8 +635,8 @@ void simulator(int total_time, int alg, int time_quantum) {
                 //다시 readyqueue로 복귀 
                 if(process->CPU_burst_remain>0) process->Waiting_time--; //지금 들어가면 기다린 적 없는 거임
                 process->TurnAround_time--;
-                comebackprocess = process;
-                //***** EnQUEUE(READY_Q, process); //얘가 readyQUEUE로 제대로 안 들어가는 듯 
+                // comebackprocess = process;
+                EnQUEUE(READY_Q, process); //얘가 readyQUEUE로 제대로 안 들어가는 듯 
                 
                 // printf("come back to ready queue~!\n");
                 // Queue_Print(READY_Q);
@@ -670,9 +670,9 @@ void simulator(int total_time, int alg, int time_quantum) {
         // Running Process 실행 및 상태 갱신
         if (RunningProcess != NULL) {
             // //현재 실행되는 프로세스 출력 
-            if(comebackprocess != NULL){
-                EnQUEUE(READY_Q, comebackprocess);
-            }
+            // if(comebackprocess != NULL){
+            //     EnQUEUE(READY_Q, comebackprocess);
+            // }
             
             printf("This process is running !  ");
             Process_Print(RunningProcess);
