@@ -77,11 +77,30 @@ void QuickSort(Node* nodes, int low, int high) {
 }
 //priority로 정렬
 int PriorityPartition(Node* nodes, int low, int high) {
-    int pivot = nodes[high].process->Priority;
+    // int pivot = nodes[high].process->Priority;
+    // int i = (low - 1);
+
+    // for (int j = low; j < high; j++) {
+    //     if (nodes[j].process->Priority < pivot) {
+    //         i++;
+    //         Node temp = nodes[i];
+    //         nodes[i] = nodes[j];
+    //         nodes[j] = temp;
+    //     }
+    // }
+    // Node temp = nodes[i + 1];
+    // nodes[i + 1] = nodes[high];
+    // nodes[high] = temp;
+    // return i + 1;
+
+    int pivot_priority = nodes[high].process->Priority;
+    int pivot_burst_remain = nodes[high].process->CPU_burst_remain;
     int i = (low - 1);
 
     for (int j = low; j < high; j++) {
-        if (nodes[j].process->Priority < pivot) {
+        if ((nodes[j].process->Priority < pivot_priority) ||
+            (nodes[j].process->Priority == pivot_priority && nodes[j].process->CPU_burst_remain < pivot_burst_remain) ||
+            (nodes[j].process->Priority == pivot_priority && nodes[j].process->CPU_burst_remain == pivot_burst_remain && nodes[j].process->pid < nodes[high].process->pid)) {
             i++;
             Node temp = nodes[i];
             nodes[i] = nodes[j];
@@ -338,7 +357,7 @@ Process* Create_Process( int pid, int IO){ //random data 부여
     //그냥 일단 임의 지정; 랜덤하게 구성 
     int cpuburst = rand()%7 + 1 ;
     int arrivaltime = rand()%10 + 1 ;
-    int priority = rand()%5 + 1;
+    int priority = rand()%5 + 1; // 1부터 5까지 .. 
     
     // printf("enter new pid :  ");
     // scanf(" %d", &(new_process->pid)); //& 안 써도 되나?  그냥 index로 순서대로 pid 생성하는게 simple
@@ -381,14 +400,6 @@ Process* Create_Process( int pid, int IO){ //random data 부여
 
 //sort(QuickSort)
 
-int compare(ElementType *a, ElementType *b){
-    return(*a - *b);
-}
-void swap(int *a, int *b) {
-    int temp = *a;
-    *a = *b;
-    *b = temp;
-}
 //linkedlist_queue 순서 바꾸는 알고리즘 
 
 int giveRandomIO(Process* process ,int cpu_remain_time){
@@ -439,6 +450,74 @@ void schedule_Non_Preemptive_SJF(){ //ok burst time
         if (READY_Q->size > 0) {
             // CPUburstQuickSort(READY_Q->Nodes, READY_Q->front, READY_Q->rear); //*****  정렬은 front, rear로 해야함
             sortQueueByCPUburst(READY_Q);
+            // printf("알고리즘 후 Sorted READY_Q by CPU_burst_remain:\n");
+            // Queue_Print(READY_Q);
+
+            RunningProcess = DeQUEUE(READY_Q);
+
+            printf("Scheduled Process: %d\n", RunningProcess->pid);
+        } else {
+
+            // CPUburstQuickSort(READY_Q->Nodes, 0, READY_Q->size - 1); //*****  
+            RunningProcess = NULL;
+        }
+    }
+}
+int IORemainPartition(Node* nodes, int low, int high) {
+    int pivot = nodes[high].process->IO_burst_remain;
+    int i = (low - 1);
+
+    for (int j = low; j < high; j++) {
+        if (nodes[j].process->IO_burst_remain > pivot ||
+            (nodes[j].process->IO_burst_remain == pivot && nodes[j].process->pid < nodes[high].process->pid)) {
+            i++;
+            Node temp = nodes[i];
+            nodes[i] = nodes[j];
+            nodes[j] = temp;
+        }
+    }
+    Node temp = nodes[i + 1];
+    nodes[i + 1] = nodes[high];
+    nodes[high] = temp;
+    return i + 1;
+}
+
+void IORemainQuickSort(Node* nodes, int low, int high) {
+    if (low < high) {
+        int pi = IORemainPartition(nodes, low, high);
+
+        IORemainQuickSort(nodes, low, pi - 1);
+        IORemainQuickSort(nodes, pi + 1, high);
+    }
+}
+
+void sortQueueByIORemain(Queue* queue) {
+    if (queue->size == 0) return;
+
+    int n = queue->size;
+    Node* tempNodes = (Node*)malloc(sizeof(Node) * n);
+    int i = queue->front;
+    for (int j = 0; j < n; j++) {
+        tempNodes[j] = queue->Nodes[i];
+        i = (i + 1) % queue->capa;
+    }
+
+    IORemainQuickSort(tempNodes, 0, n - 1);
+
+    i = queue->front;
+    for (int j = 0; j < n; j++) {
+        queue->Nodes[i] = tempNodes[j];
+        i = (i + 1) % queue->capa;
+    }
+
+    free(tempNodes);
+}
+
+void schedule_Non_Preemptive_LongestIOfirst(){ //ok burst time
+    if(RunningProcess == NULL){
+        if (READY_Q->size > 0) {
+            // CPUburstQuickSort(READY_Q->Nodes, READY_Q->front, READY_Q->rear); //*****  정렬은 front, rear로 해야함
+            sortQueueByIORemain(READY_Q);
             // printf("알고리즘 후 Sorted READY_Q by CPU_burst_remain:\n");
             // Queue_Print(READY_Q);
 
@@ -528,16 +607,7 @@ void schedule_Non_Preemptive_Priority(){ //ok
 }
 
 void schedule_Preemptive_Priority(){
-    // if (READY_Q->size > 0) {
-    //     PriorityQuickSort(READY_Q->Nodes, 0, READY_Q->size - 1);
-    //     Process* nextProcess = READY_Q->Nodes[READY_Q->front].process;
-    //     if (RunningProcess == NULL || nextProcess->Priority < RunningProcess->Priority) {
-    //         if (RunningProcess != NULL) {
-    //             EnQUEUE(READY_Q, RunningProcess);
-    //         }
-    //         RunningProcess = DeQUEUE(READY_Q);
-    //     }
-    // }
+    
     if(RunningProcess == NULL){
         if (READY_Q->size > 0) {
             // CPUburstQuickSort(READY_Q->Nodes, READY_Q->front, READY_Q->rear); //*****  정렬은 front, rear로 해야함
@@ -570,9 +640,6 @@ void schedule_Preemptive_Priority(){
             }
         }
     }
-
-    
-
 }
 
 
@@ -582,7 +649,7 @@ typedef struct tagGanttChart {
     int pid;
 } GanttChart;
 
-GanttChart gantt[50];
+GanttChart gantt[100];
 int ganttSize = 0;
 
 void resetGanttChart() {
@@ -594,7 +661,7 @@ void resetGanttChart() {
 }
 void printGanttChart() {
     printf("\nGantt Chart:\n");
-    for(int i = 0; i < 40; i++){
+    for(int i = 0; i < ganttSize+1; i++){
         printf("|  %d   ", i);
 
     }
@@ -631,16 +698,37 @@ void schedule_RR(int time_quantum){
     
 }
 
+// Queue* priority1_Q;
+// Queue* priority2_Q;
+// Queue* priority3_Q;
+// Queue* priority4_Q;
+// Queue* priority5_Q;
+
+// void Make_Priority_Q(int numofprocess){
+//     CreateQUEUE(priority1_Q, numofprocess);
+//     CreateQUEUE(priority2_Q, numofprocess);
+//     CreateQUEUE(priority3_Q, numofprocess);
+//     CreateQUEUE(priority4_Q, numofprocess);
+//     CreateQUEUE(priority5_Q, numofprocess);
+// }
+
+void schedule_multilevel_queue(int numofprocess){
+    
+
+}
+
 // 시뮬레이터에서 각 시간 단위의 실행 상태를 기록하기 위한 구조체
 
 void simulator(int total_time, int alg, int time_quantum) {
+    CPU_IDLE = 0; 
     int t;
     for (t = 0; t < total_time; t++) { // 전체 실행시간이 total_time
-        // printf("\nTime: %d\n", t);
+        //***** printf("\nTime: %d\n", t);
 
         //실행할 거 없으면 종료
         if (isQueueEmpty(JOB_Q) && isQueueEmpty(READY_Q) && isQueueEmpty(WAIT_Q) && RunningProcess==NULL) {
             printf("All queues are empty. Simulation ends at time %d.\n", t);
+            // printf("cpu utilization : %d / %d ", CPU_IDLE/t);
             break;
         }
 
@@ -652,7 +740,7 @@ void simulator(int total_time, int alg, int time_quantum) {
         // printf("%d",isQueueEmpty(READY_Q));// readyqueue가 비워진대.. 흠
 
         //알고리즘에 따라 정렬하기 전의 readyQueue
-        // Queue_Print(READY_Q); 
+        //*****Queue_Print(READY_Q); 
         // printf("\n ");
 
     //WAIT_Q에 있던 애들 다시 READY_Q로 불러오기 setup
@@ -709,13 +797,17 @@ void simulator(int total_time, int alg, int time_quantum) {
             case 5:
                 schedule_RR(time_quantum);
                 break;
+            case 6:
+                schedule_Non_Preemptive_LongestIOfirst();
+                break;
         }
+        //***** printf("\n");
         // Queue_Print(READY_Q);
         // Running Process 실행 및 상태 갱신
         if (RunningProcess != NULL) {
             // //현재 실행되는 프로세스 출력 
-            // printf("This process is running !  ");
-            // Process_Print(RunningProcess);
+            printf("This process is running !  ");
+            Process_Print(RunningProcess);
 
             gantt[ganttSize].time = t;
             gantt[ganttSize].pid = RunningProcess->pid;
@@ -783,6 +875,9 @@ void simulator(int total_time, int alg, int time_quantum) {
     // 종료된 프로세스들 출력
     printf("\nCompleted Processes:\n");
     Queue_Print(TERMINATE_Q);
+    // printf("CPU IDLE accum : %d", CPU_IDLE);
+    //cpu utilization ;;;
+
 
 }
 
@@ -857,7 +952,7 @@ typedef struct tagMetrics {
     double avg_waiting_time;
 } Metrics;
 
-Metrics metrics[6];
+Metrics metrics[7];
 
 void calculateMetrics(Queue* terminate_queue, int alg) {
     int total_turnaround_time = 0;
@@ -881,11 +976,12 @@ void printMetrics() {
         "Preemptive SJF",
         "Non-Preemptive Priority",
         "Preemptive Priority",
-        "Round Robin"
+        "Round Robin",
+        "Longest IO First"
     };
 
     printf("\nAlgorithm Metrics:\n");
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
         printf("%s - Avg Turnaround Time: %.2f, Avg Waiting Time: %.2f\n",
                alg_names[i],
                metrics[i].avg_turnaround_time,
@@ -900,7 +996,8 @@ int main(){
     scanf("%d %d", &numofprocess, &numofIOprocess);
     SET_Q(numofprocess);
     SET_JQ(numofprocess, numofIOprocess);
-
+    // Make_Priority_Q(numofprocess);
+    
     Queue_Print(JOB_Q);
     printf("\n");
 
@@ -924,75 +1021,89 @@ int main(){
     CopyQueue(BACKUP_JOB_Q, JOB_Q);
    */ 
     //simulator 0 : FCFS
-
-    simulator(100, 0, 0);
-    printf("\n");
-    printf("simulator 0 : FCFS \n");
-    printGanttChart();
-    printf("\n");
-    calculateMetrics(TERMINATE_Q, 0);
-    ResetQueue(TERMINATE_Q);
-
-    //simulator 1 : 비선점 CPUburst
-    
-    DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
-    resetGanttChart();
-    simulator(100, 1, 0);
-    printf("\n");
-    printf("simulator 1 : 비선점 CPUburst\n");
-    printGanttChart();
-    printf("\n");
-    calculateMetrics(TERMINATE_Q, 1);
-    ResetQueue(TERMINATE_Q);
-
-    
-    //simulator 2 : 선점 CPUburst
-    
-    DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
-    resetGanttChart();
-    simulator(100, 2, 0);
-    printf("\n");
-    printf("simulator 2 : 선점 CPUburst\n");
-    printGanttChart();
-    printf("\n");
-    calculateMetrics(TERMINATE_Q, 2);
-    ResetQueue(TERMINATE_Q);
-    
-    //simulator 3 : 비선점 Priority
-   
-    DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
-    resetGanttChart();
-    simulator(100, 3, 0);
-    printf("\n");
-    printf("simulator 3 : 비선점 Priority\n");
-    printGanttChart();
-    printf("\n");
-    calculateMetrics(TERMINATE_Q, 3);
-    ResetQueue(TERMINATE_Q);
-
-    
-    //simulator 4 : 선점 Priority
-    DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
-    resetGanttChart();
-    simulator(100, 4, 0);
-    printf("\n");
-    printf("simulator 4 : 선점 Priority\n");
-    printGanttChart();
-    printf("\n");
-    calculateMetrics(TERMINATE_Q, 4);
-    ResetQueue(TERMINATE_Q);
- 
-    //simulator 5 : RoundRobin
-    DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
-    resetGanttChart();
-    simulator(100, 5, 4);
-    printf("\n");
-    printf("simulator 5 : RoundRobin\n");
-    printGanttChart();
-    printf("\n");
-    calculateMetrics(TERMINATE_Q, 5);
+    int test ; 
+    int chosen_algo ; 
+    int timequantum ;
+    for(test = 0 ; test < 7 ; test++ ){
+        printf("tell me what you want to see : \n 0 : FCFS , 1 : Non-Preemptive SJF, 2 : Preemptive SJF, \n 3 : Non-Preemptive Priority, 4 : Preemptive Priority, 5 : RoundRobin, 6 : Longest_IO_First ");
+        scanf("%d", &chosen_algo);
+        if(chosen_algo == 5){
+            printf("tell me what time quantum do you want : ");
+            scanf("%d", &timequantum);
+        }
+        DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
+        resetGanttChart();
+        simulator(100, chosen_algo, timequantum);
+        printf("\n");
+        printf("simulator you selected was %d \n", chosen_algo);
+        printGanttChart();
+        printf("\n");
+        calculateMetrics(TERMINATE_Q, chosen_algo);
+        ResetQueue(TERMINATE_Q);
+    }
 
     printMetrics();
+    
+
+    // //simulator 1 : 비선점 CPUburst
+    
+    // DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
+    // resetGanttChart();
+    // simulator(100, 1, 0);
+    // printf("\n");
+    // printf("simulator 1 : 비선점 CPUburst\n");
+    // printGanttChart();
+    // printf("\n");
+    // calculateMetrics(TERMINATE_Q, 1);
+    // ResetQueue(TERMINATE_Q);
+
+    
+    // //simulator 2 : 선점 CPUburst
+    
+    // DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
+    // resetGanttChart();
+    // simulator(100, 2, 0);
+    // printf("\n");
+    // printf("simulator 2 : 선점 CPUburst\n");
+    // printGanttChart();
+    // printf("\n");
+    // calculateMetrics(TERMINATE_Q, 2);
+    // ResetQueue(TERMINATE_Q);
+    
+    // //simulator 3 : 비선점 Priority
+   
+    // DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
+    // resetGanttChart();
+    // simulator(100, 3, 0);
+    // printf("\n");
+    // printf("simulator 3 : 비선점 Priority\n");
+    // printGanttChart();
+    // printf("\n");
+    // calculateMetrics(TERMINATE_Q, 3);
+    // ResetQueue(TERMINATE_Q);
+
+    
+    // //simulator 4 : 선점 Priority
+    // DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
+    // resetGanttChart();
+    // simulator(100, 4, 0);
+    // printf("\n");
+    // printf("simulator 4 : 선점 Priority\n");
+    // printGanttChart();
+    // printf("\n");
+    // calculateMetrics(TERMINATE_Q, 4);
+    // ResetQueue(TERMINATE_Q);
+ 
+    // //simulator 5 : RoundRobin
+    // DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
+    // resetGanttChart();
+    // simulator(100, 5, 4);
+    // printf("\n");
+    // printf("simulator 5 : RoundRobin\n");
+    // printGanttChart();
+    // printf("\n");
+    // calculateMetrics(TERMINATE_Q, 5);
+
     // Queue_Print(BACKUP_JOB_Q);
 
     
@@ -1007,4 +1118,5 @@ int main(){
 void evaluator(Queue* terminate_queue){
     
 }
+
 
