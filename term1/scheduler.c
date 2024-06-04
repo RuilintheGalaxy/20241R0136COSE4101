@@ -1115,8 +1115,5 @@ int main(){
     
 }
 
-void evaluator(Queue* terminate_queue){
-    
-}
 
 
