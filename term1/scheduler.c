@@ -868,7 +868,7 @@ int main(){
         }
         DeepCopyQueue(BACKUP_JOB_Q, &JOB_Q);
         resetGanttChart();
-        simulator(100, chosen_algo, timequantum);
+        simulator(MAXTIME, chosen_algo, timequantum);
         printf("\n");
         printf("simulator you selected was %d \n", chosen_algo);
         printGanttChart();
